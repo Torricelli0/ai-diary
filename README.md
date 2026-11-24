@@ -43,6 +43,25 @@ bash scripts/summarize.sh               # 立即手动运行一次
 
 也可以把仓库地址发给 agent，让它执行上述步骤。
 
+## 快速配置（建议先看这里）
+
+绝大多数人**只用"提问"证据就够了**——不配任何环境变量，直接：
+
+```bash
+bash scripts/summarize.sh              # 立即体验一次
+bash scripts/install_schedule.sh       # 装每天 23:30 的定时任务
+```
+
+日记依然会生成，内容是"今天你问了 AI 什么"。**这套配置一次即可，不用每天跑。**
+
+如果你想让日记额外包含"做了什么"（Git 提交 + 改过的文件），再配置下面两个变量——**只需配一次**，写进 shell 配置（如 `~/.zshrc`），然后**重新运行一次** `install_schedule.sh` 让定时任务读到：
+
+```bash
+export AI_DIARY_REPOS="$HOME/项目1 $HOME/项目2"
+export AI_DIARY_SCAN_DIRS="$HOME/项目1 $HOME/项目2"
+bash scripts/install_schedule.sh
+```
+
 **环境变量**（可选）：
 
 | 变量 | 作用 | 默认 |
