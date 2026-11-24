@@ -8,7 +8,13 @@
 
 - 同一个软件开了多个对话、还用不同软件（DSH / Codex / Claude Code），回头想找"我那天让 AI 做了什么"很难；
 - 已有的日志项目（engineering-notebook 等）只支持 Claude/Codex，不支持 DSH，且输出 SQLite + Web UI——太重；
-- 这个工具**支持三种 agent**，输出你自己的 Obsidian markdown，零依赖、零 API Key（复用你本机已有的 AI CLI）。
+- 这个工具**支持三种 agent**，输出普通 markdown 文件，零依赖、零 API Key（复用你本机已有的 AI CLI）。
+
+## 关于输出：Markdown 是通用的，Obsidian 只是默认存放地
+
+本工具输出的就是**普通 `.md` 文件**（如 `11.24.md`）——任何 markdown 软件都能打开和编辑：Typora、VS Code、文本编辑器都行。README 里反复提 Obsidian，只是因为它是作者自己的日记存放地，不是技术绑定。想改到 Typora 的目录，只需设置环境变量 `AI_DIARY_DIR`。
+
+**为什么默认用 Obsidian**（可选了解）：Obsidian 是一个本地优先的 markdown 知识库软件——文件以纯文本存在你电脑上（不是云端数据库），核心特色是**双向链接 / 知识图谱**（能看到笔记之间的关联网络），并有上千个社区插件/主题可扩展。它**本身不内置 AI**，但社区有 AI 插件（如 Smart Connections、Text Generator 等）可以接各种模型。这些特性和"每天一篇按日期命名的日记、长期积累成个人知识库"的场景很契合——所以选它当默认示例。但你完全可以用 Typora（更轻的所见即所得 markdown 编辑器）或任何软件代替。
 
 ## 原理
 
@@ -62,6 +68,22 @@ bash scripts/summarize.sh               # 立即手动跑一次
 ## 作为 skill 使用
 
 仓库根目录的 `SKILL.md` 是给 agent 用的薄封装：你把仓库加进它的 skills 目录后，说"总结今天"就会触发手动总结。定时功能仍由 `install_schedule.sh` 负责（skill 不能自己定时）。
+
+## 为什么用系统定时任务，而不是 skill / hook / Trae 那种自动化
+
+三者本质都是"事件触发 → 自动执行"，但调度者不同：
+
+| 方式 | 谁调度 | 需要软件开着吗 | 跨 agent |
+|---|---|---|---|
+| **系统定时**（本工具） | OS 的 launchd / cron | ❌ 不需要，到点就跑 | ✅ 汇总三个软件 |
+| **Hook** | agent 进程内事件（会话开始/结束） | ✅ 必须是那个 agent | ❌ 只覆盖一个 |
+| **Trae/产品自动化** | 产品内置调度器 | ✅ 通常要开着并登录 | ❌ 绑定该产品 |
+
+选系统定时的原因：你的数据源是**磁盘上的会话存档文件**，深夜一次性扫描当天所有文件，拿到的是完整落盘的一天——比"每个会话结束时逐个拼"更完整，还能跨软件合并。而且系统调度不受各 agent 更新/改配置影响，最稳定。
+
+**跨平台**：Mac 用 launchd，Linux 用 cron（`install_schedule.sh` 自动识别）；**Windows 用户**需手动用"任务计划程序"调用 `scripts/summarize.sh`（Git Bash 下运行）或改成 PowerShell 版本——目前没有一键安装，欢迎 PR。
+
+skill（`SKILL.md`）只是给"想手动说一句总结今天"的人用的入口，定时任务不依赖它。
 
 ## 隐私
 
