@@ -20,7 +20,12 @@ if [ "$(uname)" = "Darwin" ]; then
   <key>StartCalendarInterval</key>
   <dict><key>Hour</key><integer>$HOUR</integer><key>Minute</key><integer>$MIN</integer></dict>
   <key>EnvironmentVariables</key>
-  <dict><key>HOME</key><string>$HOME</string></dict>
+  <dict>
+    <key>HOME</key><string>$HOME</string>
+    <key>AI_DIARY_REPOS</key><string>${AI_DIARY_REPOS:-}</string>
+    <key>AI_DIARY_SCAN_DIRS</key><string>${AI_DIARY_SCAN_DIRS:-}</string>
+    <key>AI_DIARY_DIR</key><string>${AI_DIARY_DIR:-$HOME/Documents/Obsidian Vault/个人/日记}</string>
+  </dict>
   <key>StandardOutPath</key><string>/tmp/ai-diary.out</string>
   <key>StandardErrorPath</key><string>/tmp/ai-diary.err</string>
 </dict>

@@ -5,7 +5,7 @@
 ## 功能
 
 - 解析 DSH、Codex、Claude Code 三者的会话记录，提取当天的用户提问（带时间戳）
-- 结合当天的 Git 提交和文件修改，生成按主题分节、带时间点的日记
+- 结合当天的 Git 提交、修改文件和提问，生成按主题分节、带时间点的日记
 - 系统定时自动执行；也可手动触发
 - 输出普通 `.md` 文件，默认写到 Obsidian 的日记目录
 
@@ -48,7 +48,8 @@ bash scripts/summarize.sh               # 立即手动运行一次
 | 变量 | 作用 | 默认 |
 |---|---|---|
 | `AI_DIARY_DIR` | 日记输出目录 | `~/Documents/Obsidian Vault/个人/日记` |
-| `AI_DIARY_REPOS` | 纳入的 Git 仓库（空格分隔） | 无 |
+| `AI_DIARY_REPOS` | 纳入的 Git 仓库（空格分隔）。**重要**：需在 `install_schedule.sh` 之前 export，否则定时任务读不到 | 无 |
+| `AI_DIARY_SCAN_DIRS` | 扫描当天修改文件的目录（空格分隔），用于"做了什么"证据 | 无 |
 | `AI_DIARY_HOUR` / `AI_DIARY_MIN` | 定时时间 | 23 / 30 |
 
 ## 依赖

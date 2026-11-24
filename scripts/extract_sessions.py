@@ -114,6 +114,43 @@ def parse_claude(path, start, end, rows):
         emit(rows, t, "claude", text)
 
 
+
+def collect_changed_files(day_start, day_end):
+    """采集当天修改过的文件（mtime 在当天），作为"做了什么"的辅助证据。"""
+    import time
+    roots = os.getenv("AI_DIARY_SCAN_DIRS", "").split()
+    if not roots:
+        return []
+    out = []
+    skip = {"node_modules", ".git", "__pycache__", ".venv", "venv",
+            "dist", "build", "_site", ".cache", "Library"}
+    exts_allow = {".md", ".py", ".js", ".ts", ".html", ".css", ".json",
+                  ".sh", ".yaml", ".yml", ".txt", ".jsx", ".tsx", ".go", ".rs"}
+    for root in roots:
+        root = os.path.expanduser(root)
+        if not os.path.isdir(root):
+            continue
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if d not in skip and not d.startswith(".")]
+            depth = dirpath[len(root):].count(os.sep)
+            if depth > 4:
+                dirnames[:] = []
+            for fn in filenames:
+                ext = os.path.splitext(fn)[1].lower()
+                if ext not in exts_allow:
+                    continue
+                fp = os.path.join(dirpath, fn)
+                try:
+                    mt = os.path.getmtime(fp)
+                except OSError:
+                    continue
+                if day_start <= mt < day_end:
+                    rel = os.path.relpath(fp, os.path.expanduser("~"))
+                    out.append((mt, rel))
+    out.sort()
+    return [rel for _, rel in out[:60]]
+
+
 def main():
     day = sys.argv[1] if len(sys.argv) > 1 else datetime.date.today().isoformat()
     start = datetime.datetime.fromisoformat(day + "T00:00:00").timestamp()
@@ -137,6 +174,11 @@ def main():
     rows.sort()
     for _, hm, agent, text in rows:
         print(f"- {hm} [{agent}] {text}")
+    changed = collect_changed_files(start, end)
+    if changed:
+        print("\n## 附带：当天修改过的文件（辅助证据）")
+        for f in changed:
+            print(f"- {f}")
 
 
 if __name__ == "__main__":
