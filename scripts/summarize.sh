@@ -10,9 +10,15 @@ VAULT="${AI_DIARY_DIR:-$HOME/Documents/Obsidian Vault/个人/日记}"
 TODAY=$(date "+%m.%d")
 FULL=$(date "+%Y-%m-%d")
 DIARY="$VAULT/${TODAY}.md"
+
+# 防重复：当天已有自动总结就跳过（FORCE=1 可强制重新生成）
+if [ "${AI_DIARY_FORCE:-}" != "1" ] && [ -f "$DIARY" ] && grep -q "## 自动总结" "$DIARY"; then
+  echo "[$(date '+%H:%M:%S')] $TODAY 已有自动总结，跳过（需重生成设 AI_DIARY_FORCE=1）" >> "$LOG"
+  exit 0
+fi
 TMP=$(mktemp /tmp/ai-diary-evidence.XXXXXX)
-LOG="$HOME/.ai-diary.log"
 mkdir -p "$VAULT"
+LOG="$HOME/.ai-diary.log"
 
 AI_CMD=$("$HERE/detect_ai.sh")
 
