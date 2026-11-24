@@ -13,6 +13,11 @@ import sys, os, glob, json, datetime, subprocess
 from pathlib import Path
 
 HOME = Path.home()
+# 可选：抓 AI 回答摘要（设 AI_DIARY_ANSWERS=1 打开，默认关）
+WANT_ANSWERS = os.getenv("AI_DIARY_ANSWERS", "") == "1"
+# 高价值过滤：明显闲聊/测试/元提问直接丢弃
+CHITCHAT = ("你好", "在吗", "你是谁", "继续", "hi", "hello", "test", "测试",
+            "谢谢", "好的", "收到", "早", "晚安", "帮我看看这个", "1", "2")
 ZSTD_CANDIDATES = ["/usr/local/bin/zstd", "/opt/homebrew/bin/zstd",
                    "/usr/local/Caskroom/miniconda/base/bin/zstd"]
 
@@ -22,6 +27,17 @@ NOISE = ("<environment_context", "agent history whose request action",
          "你是我的日志整理助手", "<system-reminder")
 
 
+def text_of(content):
+    """从消息 content 里取纯文本，跳过 reasoning / tool_use / tool_result。"""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return " ".join(c.get("text", "") for c in content
+                        if isinstance(c, dict) and c.get("type") == "text"
+                        and c.get("text") and not c.get("text").startswith("Base directory:"))
+    return ""
+
+
 def find_zstd():
     for p in ZSTD_CANDIDATES:
         if Path(p).exists():
@@ -29,11 +45,17 @@ def find_zstd():
     return None
 
 
-def emit(rows, t, agent, text):
+def emit(rows, t, agent, text, kind="Q"):
     text = " ".join(str(text).split())
-    if text and len(text) > 1 and not any(n in text for n in NOISE):
-        hm = datetime.datetime.fromtimestamp(t).strftime("%H:%M")
-        rows.append((t, hm, agent, text[:200]))
+    if not text or len(text) < 2:
+        return
+    if any(n in text for n in NOISE):
+        return
+    if kind == "Q" and text.lower().strip("。.!！?？ ") in CHITCHAT:
+        return
+    hm = datetime.datetime.fromtimestamp(t).strftime("%H:%M")
+    limit = 160 if kind == "Q" else 220
+    rows.append((t, hm, agent, kind, text[:limit]))
 
 
 def parse_dsh(path, start, end, rows, zstd):
@@ -46,15 +68,16 @@ def parse_dsh(path, start, end, rows, zstd):
             ev = json.loads(line)
         except Exception:
             continue
-        if ev.get("type") != "user/message":
-            continue
         t = ev.get("time", 0) / 1000
         if not (start <= t < end):
             continue
-        content = ev.get("data", {}).get("content", [])
-        text = " ".join(c.get("text", "") for c in content
-                        if isinstance(c, dict) and c.get("type") == "text")
-        emit(rows, t, "dsh", text)
+        typ = ev.get("type")
+        if typ == "user/message":
+            content = ev.get("data", {}).get("content", [])
+            emit(rows, t, "dsh", text_of(content), "Q")
+        elif typ == "assistant/message" and WANT_ANSWERS:
+            msg = ev.get("data", {}).get("message", {})
+            emit(rows, t, "dsh", text_of(msg.get("content", [])) if isinstance(msg, dict) else "", "A")
 
 
 def parse_codex(path, start, end, rows):
@@ -73,16 +96,20 @@ def parse_codex(path, start, end, rows):
         if not (start <= t < end):
             continue
         payload = ev.get("payload", {})
-        if ev.get("type") == "response_item" and payload.get("role") == "user":
-            content = payload.get("content", [])
-            if isinstance(content, list):
-                text = " ".join(c.get("text", "") for c in content
-                                if isinstance(c, dict) and c.get("type") in ("input_text", "text"))
-            else:
-                text = str(content)
-            emit(rows, t, "codex", text)
+        if ev.get("type") == "response_item":
+            role = payload.get("role")
+            if role == "user":
+                content = payload.get("content", [])
+                if isinstance(content, list):
+                    text = " ".join(c.get("text", "") for c in content
+                                    if isinstance(c, dict) and c.get("type") in ("input_text", "text"))
+                else:
+                    text = str(content)
+                emit(rows, t, "codex", text, "Q")
+            elif role == "assistant" and WANT_ANSWERS:
+                emit(rows, t, "codex", text_of(payload.get("content", [])), "A")
         elif ev.get("type") == "event_msg" and payload.get("type") == "user_message":
-            emit(rows, t, "codex", payload.get("message", ""))
+            emit(rows, t, "codex", payload.get("message", ""), "Q")
 
 
 def parse_claude(path, start, end, rows):
@@ -90,8 +117,6 @@ def parse_claude(path, start, end, rows):
         try:
             ev = json.loads(line)
         except Exception:
-            continue
-        if ev.get("type") != "user":
             continue
         ts = ev.get("timestamp", "")
         if not ts:
@@ -102,17 +127,20 @@ def parse_claude(path, start, end, rows):
             continue
         if not (start <= t < end):
             continue
+        typ = ev.get("type")
         msg = ev.get("message", {})
-        content = msg.get("content", "") if isinstance(msg, dict) else ""
-        if isinstance(content, list):
-            if any(isinstance(c, dict) and c.get("type") == "tool_result" for c in content):
-                continue
-            text = " ".join(c.get("text", "") for c in content
-                            if isinstance(c, dict) and c.get("type") == "text")
-        else:
-            text = str(content)
-        emit(rows, t, "claude", text)
-
+        if typ == "user":
+            content = msg.get("content", "") if isinstance(msg, dict) else ""
+            if isinstance(content, list):
+                if any(isinstance(c, dict) and c.get("type") == "tool_result" for c in content):
+                    continue
+                text = " ".join(c.get("text", "") for c in content
+                                if isinstance(c, dict) and c.get("type") == "text")
+            else:
+                text = str(content)
+            emit(rows, t, "claude", text, "Q")
+        elif typ == "assistant" and WANT_ANSWERS:
+            emit(rows, t, "claude", text_of(msg.get("content", [])) if isinstance(msg, dict) else "", "A")
 
 
 def collect_changed_files(day_start, day_end):
@@ -172,8 +200,9 @@ def main():
             parse_claude(f, start, end, rows)
 
     rows.sort()
-    for _, hm, agent, text in rows:
-        print(f"- {hm} [{agent}] {text}")
+    for _, hm, agent, kind, text in rows:
+        tag = "提问" if kind == "Q" else "AI回答摘要"
+        print(f"- {hm} [{agent}/{tag}] {text}")
     changed = collect_changed_files(start, end)
     if changed:
         print("\n## 附带：当天修改过的文件（辅助证据）")

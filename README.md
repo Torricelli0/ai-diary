@@ -69,7 +69,14 @@ bash scripts/install_schedule.sh
 | `AI_DIARY_DIR` | 日记输出目录 | `~/Documents/Obsidian Vault/个人/日记` |
 | `AI_DIARY_REPOS` | 纳入的 Git 仓库（空格分隔）。**重要**：需在 `install_schedule.sh` 之前 export，否则定时任务读不到 | 无 |
 | `AI_DIARY_SCAN_DIRS` | 扫描当天修改文件的目录（空格分隔），用于"做了什么"证据 | 无 |
+| `AI_DIARY_ANSWERS` | 设为 `1` 时额外提取 AI 回答摘要（"学到了什么"更准，但证据更大、token 更多） | 关 |
 | `AI_DIARY_HOUR` / `AI_DIARY_MIN` | 定时时间 | 23 / 30 |
+
+## 提问如何筛选
+
+脚本会过滤明显的闲聊与系统注入（如"你好/在吗/继续"、system-reminder、工具结果等），
+只保留有实质内容的提问；总结时 AI 会把同类提问**按主题归纳**，而不是逐条罗列。
+若开启 `AI_DIARY_ANSWERS=1`，还会抓取 AI 回答摘要，作为"学到了什么 / 用 AI 完成了什么"的实据。
 
 ## 依赖
 
