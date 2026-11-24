@@ -1,11 +1,11 @@
 ---
 name: ai-diary
-description: 把每天与多个 AI agent（DSH/Codex/Claude Code）的对话自动总结成 Obsidian 日记。当用户说"总结今天/记日记/AI 日记/我今天做了什么"或要安装每日自动日志时使用。定时部分由 install_schedule.sh 负责，本 skill 提供手动触发入口。
+description: 把每天与多个 AI agent（DSH/Codex/Claude Code）的对话总结成 Markdown 日记。用户说"总结今天/记日记/我今天做了什么"或要求安装每日自动日志时使用。
 ---
 
 # AI Diary
 
-把"散落在多个 AI 软件里的对话"汇总成每天的 Markdown 日记。
+汇总多个 AI 软件的对话，生成每日 Markdown 日记。
 
 ## 何时用
 - 用户说"总结今天""记一下今天的日记""我今天用 AI 做了什么"
